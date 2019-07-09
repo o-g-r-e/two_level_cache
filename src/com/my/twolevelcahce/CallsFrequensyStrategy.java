@@ -5,17 +5,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class CallsFrequensyStrategy<KeyType, ValueType extends Serializable> implements Strategy<KeyType, ValueType> {
-	private Map<KeyType, Integer> callFrequensyes;
+	/*private Map<KeyType, Integer> callFrequensyes;
 	private FileCahce<KeyType, ValueType> fileCache;
 	private MemoryCahce<KeyType,ValueType> memoryCache;
 	private int memoryCacheMaxSize;
 	private int fileCacheMaxSize;
 	private int memoryCacheMisses;
-	private int memoryCacheHits;
+	private int memoryCacheHits;*/
 	
 	
 	
-	public CallsFrequensyStrategy(FileCahce<KeyType, ValueType> fileCache, MemoryCahce<KeyType, ValueType> memoryCache, int memoryCacheMaxSize, int fileCacheMaxSize) {
+	/*public CallsFrequensyStrategy(FileCahce<KeyType, ValueType> fileCache, MemoryCahce<KeyType, ValueType> memoryCache, int memoryCacheMaxSize, int fileCacheMaxSize) {
 		this.fileCache = fileCache;
 		this.memoryCache = memoryCache;
 		this.memoryCacheMaxSize = memoryCacheMaxSize;
@@ -24,18 +24,18 @@ public class CallsFrequensyStrategy<KeyType, ValueType extends Serializable> imp
 		this.callFrequensyes = new HashMap<KeyType, Integer>();
 		this.memoryCacheMisses = 0;
 		this.memoryCacheHits = 0;
-	}
+	}*/
 	
 	@Override
-	public ValueType getObject(KeyType key) {
+	public ValueType getObject(KeyType key, TwoLevelCache twoLevelCache) {
 		updateCallFrequensyes(key);
 		
 		if(memoryCache.containsKey(key)) {
-			memoryCacheHits++;
+			//memoryCacheHits++;
 			return memoryCache.get(key);
 		}
 		
-		memoryCacheMisses++;
+		//memoryCacheMisses++;
 		
 		if(memoryCache.getDataVolume() < memoryCacheMaxSize) {
 			moveObjectToMemoryCache(key);
