@@ -17,12 +17,19 @@ public class MemoryCahce<KeyType, ValueType> implements Cache<KeyType, ValueType
 
 	@Override
 	public ValueType get(KeyType key) {
+		
+		if(!data.containsKey(key)) {
+			return null;
+		}
+		
 		return data.get(key);
 	}
 
 	@Override
 	public void delete(KeyType key) {
-		data.remove(key);
+		if(data.containsKey(key)) {
+			data.remove(key);
+		}
 	}
 
 	@Override

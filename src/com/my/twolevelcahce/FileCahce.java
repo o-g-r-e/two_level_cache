@@ -60,6 +60,11 @@ public class FileCahce<KeyType, ValueType extends Serializable> implements Cache
 
 	@Override
 	public ValueType get(KeyType key) {
+		
+		if(!filePaths.containsKey(key)) {
+			return null;
+		}
+		
 		ValueType object = null;
 		String objectFilePath = filePaths.get(key);
 		
@@ -94,10 +99,12 @@ public class FileCahce<KeyType, ValueType extends Serializable> implements Cache
 
 	@Override
 	public void delete(KeyType key) {
-		String objectFilePath = filePaths.get(key);
-		File objectFile = new File(objectFilePath);
-        objectFile.delete();
-        filePaths.remove(key);
+		if(filePaths.containsKey(key)) {
+			String objectFilePath = filePaths.get(key);
+			File objectFile = new File(objectFilePath);
+	        objectFile.delete();
+	        filePaths.remove(key);
+		}
 	}
 
 	@Override
