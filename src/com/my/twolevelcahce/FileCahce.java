@@ -17,11 +17,11 @@ public class FileCahce<KeyType, ValueType extends Serializable> implements Cache
 	
 	public FileCahce(String workDirectory) {
 		this.cacheDirectory = workDirectory;
+		File cacheDirFile = new File(this.cacheDirectory);
+		if(!cacheDirFile.exists()) {
+			cacheDirFile.mkdirs();
+		}
 		this.filePaths = new HashMap<KeyType, String>();
-	}
-	
-	public FileCahce() {
-		this.cacheDirectory = new File(".").getAbsolutePath()+File.separator+"cache";
 	}
 	
 	@Override

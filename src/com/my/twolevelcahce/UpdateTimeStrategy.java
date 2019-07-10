@@ -10,54 +10,44 @@ public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> impleme
 	private Map<KeyType, Long> fileUpdateTime;
 	private Map<KeyType, Long> memoryUpdateTime;
 	private Map<KeyType, Long> lastCallTime;
-	private FileCahce<KeyType, ValueType> fileCache;
-	private MemoryCahce<KeyType,ValueType> memoryCache;
-	private int memoryCacheMaxSize;
-	private int fileCacheMaxSize;
-	private int memoryCacheMisses;
-	private int memoryCacheHits;
 
-	public UpdateTimeStrategy(FileCahce<KeyType, ValueType> fileCache, MemoryCahce<KeyType, ValueType> memoryCache, int memoryCacheMaxSize, int fileCacheMaxSize) {
-		this.fileCache = fileCache;
-		this.memoryCache = memoryCache;
-		this.memoryCacheMaxSize = memoryCacheMaxSize;
-		this.fileCacheMaxSize = fileCacheMaxSize;
-		
+	public UpdateTimeStrategy() {
 		this.fileUpdateTime = new HashMap<KeyType, Long>();
 		this.memoryUpdateTime = new HashMap<KeyType, Long>();
-		this.memoryCacheMisses = 0;
-		this.memoryCacheHits = 0;
 		this.lastCallTime = new HashMap<KeyType, Long>();
 	}
 
 	@Override
-	public void putObject(KeyType key, ValueType value) throws CahceOverfullException {
-		if(fileCache.getDataVolume() >= fileCacheMaxSize) {
+	public void putObject(KeyType key, ValueType value, TwoLevelCache twoLevelCache) throws CahceOverfullException {
+		if(twoLevelCache.getFileCache().getDataVolume() >= twoLevelCache.getFileCacheMaxSize()) {
 			throw new CahceOverfullException();
 		}
-		fileCache.put(key, value);
+		twoLevelCache.getFileCache().put(key, value);
 		fileUpdateTime.put(key, new Date().getTime());
 	}
 
 	@Override
-	public ValueType getObject(KeyType key) {
-		if(!memoryCache.containsKey(key)) {
-			if(memoryCache.getDataVolume() < memoryCacheMaxSize) {
-				moveObjectToMemoryCache(key);
-				memoryCacheMisses++;
-				return memoryCache.get(key);
-			} else {
-				KeyType disKey = findDisplaycedObject();
-				memoryCache.delete(disKey);
-				moveObjectToMemoryCache(key);
-			}
-		}
+	public ValueType getObject(KeyType key, TwoLevelCache twoLevelCache) {
 		
-		if(isMemoryObjectOutdated(key)) {
-			moveObjectToMemoryCache(key);
-			memoryCacheMisses++;
+		MemoryCahce<KeyType, ValueType> memoryCache = twoLevelCache.getMemoryCache();
+		
+		if(memoryCache.containsKey(key)) {
+			if(isMemoryObjectOutdated(key)) {
+				moveObjectToMemoryCache(key, twoLevelCache);
+				twoLevelCache.incrementMemoryCacheMisses();
+			} else {
+				twoLevelCache.incrementMemoryCacheHits();
+			}
+			
 		} else {
-			memoryCacheHits++;
+			if(memoryCache.getDataVolume() < twoLevelCache.getMemoryCacheMaxSize()) {
+				moveObjectToMemoryCache(key, twoLevelCache);
+				twoLevelCache.incrementMemoryCacheMisses();
+			} else {
+				KeyType disKey = (KeyType) findDisplaycedObject(twoLevelCache.getMemoryCache());
+				memoryCache.delete(disKey);
+				moveObjectToMemoryCache(key, twoLevelCache);
+			}
 		}
 		
 		lastCallTime.put(key, new Date().getTime());
@@ -65,14 +55,14 @@ public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> impleme
 		return memoryCache.get(key);
 	}
 	
-	private KeyType findDisplaycedObject() {
-		KeyType minTimeKey = lastCallTime.entrySet().iterator().next().getKey();
-		Long minTimeValue = lastCallTime.entrySet().iterator().next().getValue();
+	private KeyType findDisplaycedObject(MemoryCahce<KeyType, ValueType> memoryCache) {
+		KeyType minTimeKey = memoryCache.getData().entrySet().iterator().next().getKey();
+		Long minTimeValue = lastCallTime.get(minTimeKey);
 		
-		for(Map.Entry<KeyType, Long> entry : lastCallTime.entrySet()) {
-			if(entry.getValue() < minTimeValue) {
+		for(Map.Entry<KeyType, ValueType> entry : memoryCache.getData().entrySet()) {
+			if(lastCallTime.get(entry.getKey()) < minTimeValue) {
 				minTimeKey = entry.getKey();
-				minTimeValue = entry.getValue();
+				minTimeValue = lastCallTime.get(minTimeKey);
 			}
 		}
 		
@@ -91,9 +81,9 @@ public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> impleme
 		return false;
 	}
 	
-	private void moveObjectToMemoryCache(KeyType key) {
-		if(fileCache.containsKey(key)) {
-			memoryCache.put(key, fileCache.get(key));
+	private void moveObjectToMemoryCache(KeyType key, TwoLevelCache twoLevelCache) {
+		if(twoLevelCache.getFileCache().containsKey(key)) {
+			twoLevelCache.getMemoryCache().put(key, twoLevelCache.getFileCache().get(key));
 			long time = new Date().getTime();
 			if(fileUpdateTime.containsKey(key)) {
 				time = fileUpdateTime.get(key);
@@ -103,15 +93,15 @@ public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> impleme
 	}
 	
 	@Override
-	public void updateObject(KeyType key, ValueType value) {
-		fileCache.put(key, value);
+	public void updateObject(KeyType key, ValueType value, TwoLevelCache twoLevelCache) {
+		twoLevelCache.getFileCache().put(key, value);
 		fileUpdateTime.put(key, new Date().getTime());
 	}
 
 	@Override
-	public void removeObject(KeyType key) {
-		memoryCache.delete(key);
-		fileCache.delete(key);
+	public void removeObject(KeyType key, TwoLevelCache twoLevelCache) {
+		twoLevelCache.getMemoryCache().delete(key);
+		twoLevelCache.getFileCache().delete(key);
 		if(lastCallTime.containsKey(key)) {
 			lastCallTime.remove(key);
 		}

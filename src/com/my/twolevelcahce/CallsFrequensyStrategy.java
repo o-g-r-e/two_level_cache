@@ -5,71 +5,61 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class CallsFrequensyStrategy<KeyType, ValueType extends Serializable> implements Strategy<KeyType, ValueType> {
-	/*private Map<KeyType, Integer> callFrequensyes;
-	private FileCahce<KeyType, ValueType> fileCache;
-	private MemoryCahce<KeyType,ValueType> memoryCache;
-	private int memoryCacheMaxSize;
-	private int fileCacheMaxSize;
-	private int memoryCacheMisses;
-	private int memoryCacheHits;*/
 	
+	private Map<KeyType, Integer> callFrequencies;
 	
-	
-	/*public CallsFrequensyStrategy(FileCahce<KeyType, ValueType> fileCache, MemoryCahce<KeyType, ValueType> memoryCache, int memoryCacheMaxSize, int fileCacheMaxSize) {
-		this.fileCache = fileCache;
-		this.memoryCache = memoryCache;
-		this.memoryCacheMaxSize = memoryCacheMaxSize;
-		this.fileCacheMaxSize = fileCacheMaxSize;
-		
-		this.callFrequensyes = new HashMap<KeyType, Integer>();
-		this.memoryCacheMisses = 0;
-		this.memoryCacheHits = 0;
-	}*/
+	public CallsFrequensyStrategy() {
+		callFrequencies = new HashMap<KeyType, Integer>();
+	}
 	
 	@Override
 	public ValueType getObject(KeyType key, TwoLevelCache twoLevelCache) {
-		updateCallFrequensyes(key);
+		
+		MemoryCahce<KeyType, ValueType> memoryCache = twoLevelCache.getMemoryCache();
+		int memoryCacheMaxSize = twoLevelCache.getMemoryCacheMaxSize();
+		
+		incrementCallFrequency(key);
 		
 		if(memoryCache.containsKey(key)) {
-			//memoryCacheHits++;
+			twoLevelCache.incrementMemoryCacheHits();
 			return memoryCache.get(key);
 		}
 		
-		//memoryCacheMisses++;
+		twoLevelCache.incrementMemoryCacheMisses();
 		
 		if(memoryCache.getDataVolume() < memoryCacheMaxSize) {
-			moveObjectToMemoryCache(key);
+			moveObjectToMemoryCache(key, twoLevelCache);
 			return memoryCache.get(key);
 		}
 		
-		KeyType disObjKey = findDisplaycedObject();
+		KeyType disObjKey = findDisplaycedObject(memoryCache);
 		
 		memoryCache.delete(disObjKey);
-		moveObjectToMemoryCache(key);
+		moveObjectToMemoryCache(key, twoLevelCache);
 		
 		return memoryCache.get(key);
 	}
 	
-	private void updateCallFrequensyes(KeyType key) {
-		if(callFrequensyes.containsKey(key)) {
-			callFrequensyes.put(key, callFrequensyes.get(key).intValue()+1);
+	private void incrementCallFrequency(KeyType key) {
+		if(callFrequencies.containsKey(key)) {
+			callFrequencies.put(key, callFrequencies.get(key).intValue()+1);
 		}
 	}
 	
-	private void moveObjectToMemoryCache(KeyType key) {
-		if(fileCache.containsKey(key)) {
-			memoryCache.put(key, fileCache.get(key));
+	private void moveObjectToMemoryCache(KeyType key, TwoLevelCache twoLevelCache) {
+		if(twoLevelCache.getFileCache().containsKey(key)) {
+			twoLevelCache.getMemoryCache().put(key, twoLevelCache.getFileCache().get(key));
 		}
 	}
 	
-	private KeyType findDisplaycedObject() {
+	private KeyType findDisplaycedObject(MemoryCahce<KeyType, ValueType> memoryCache) {
 		KeyType minFreqKey = memoryCache.getData().entrySet().iterator().next().getKey();
-		Integer minFreqValue = callFrequensyes.get(minFreqKey);
+		Integer minFreqValue = callFrequencies.get(minFreqKey);
 		
 		for(Map.Entry<KeyType, ValueType> entry : memoryCache.getData().entrySet()) {
-			if(callFrequensyes.get(entry.getKey()) < minFreqValue) {
+			if(callFrequencies.get(entry.getKey()) < minFreqValue) {
 				minFreqKey = entry.getKey();
-				minFreqValue = callFrequensyes.get(minFreqKey);
+				minFreqValue = callFrequencies.get(minFreqKey);
 			}
 		}
 		
@@ -77,25 +67,25 @@ public class CallsFrequensyStrategy<KeyType, ValueType extends Serializable> imp
 	}
 
 	@Override
-	public void putObject(KeyType key, ValueType value) throws CahceOverfullException {
-		if(fileCache.getDataVolume() >= fileCacheMaxSize) {
+	public void putObject(KeyType key, ValueType value, TwoLevelCache twoLevelCache) throws CahceOverfullException {
+		if(twoLevelCache.getFileCache().getDataVolume() >= twoLevelCache.getFileCacheMaxSize()) {
 			throw new CahceOverfullException();
 		}
-		fileCache.put(key, value);
-		callFrequensyes.put(key, new Integer(0));
+		twoLevelCache.getFileCache().put(key, value);
+		callFrequencies.put(key, new Integer(0));
 	}
 
 	@Override
-	public void updateObject(KeyType key, ValueType value) {
-		fileCache.put(key, value);
+	public void updateObject(KeyType key, ValueType value, TwoLevelCache twoLevelCache) {
+		twoLevelCache.getFileCache().put(key, value);
 	}
 
 	@Override
-	public void removeObject(KeyType key) {
-		memoryCache.delete(key);
-		fileCache.delete(key);
-		if(callFrequensyes.containsKey(key)) {
-			callFrequensyes.remove(key);
+	public void removeObject(KeyType key, TwoLevelCache twoLevelCache) {
+		twoLevelCache.getMemoryCache().delete(key);
+		twoLevelCache.getFileCache().delete(key);
+		if(callFrequencies.containsKey(key)) {
+			callFrequencies.remove(key);
 		}
 	}
 
