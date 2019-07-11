@@ -39,9 +39,9 @@ public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> impleme
 				twoLevelCache.incrementMemoryCacheHits();
 			}
 		} else {
+			twoLevelCache.incrementMemoryCacheMisses();
 			if(memoryCache.getDataVolume() < twoLevelCache.getMemoryCacheMaxSize()) {
 				putObjectToMemoryCache(key, twoLevelCache);
-				twoLevelCache.incrementMemoryCacheMisses();
 			} else {
 				displaceObject(key, twoLevelCache);
 			}
