@@ -7,9 +7,9 @@ import java.util.Map;
 
 public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> implements Strategy<KeyType, ValueType> {
 
-	private Map<KeyType, Long> fileUpdateTime;
-	private Map<KeyType, Long> memoryUpdateTime;
-	private Map<KeyType, Long> lastCallTime;
+	private Map<KeyType, Long> fileUpdateTime; // Время обновления Объекта в файловом кэше
+	private Map<KeyType, Long> memoryUpdateTime; // Время обновления Объекта в RAM кэше
+	private Map<KeyType, Long> lastCallTime; // Последнее время вызова Объекта
 
 	public UpdateTimeStrategy() {
 		this.fileUpdateTime = new HashMap<KeyType, Long>();
@@ -18,7 +18,7 @@ public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> impleme
 	}
 
 	@Override
-	public void putObject(KeyType key, ValueType value, TwoLevelCache twoLevelCache) throws CahceOverfullException {
+	public void putObject(KeyType key, ValueType value, TwoLevelCache<KeyType, ValueType> twoLevelCache) throws CahceOverfullException {
 		if(twoLevelCache.getFileCache().getDataVolume() >= twoLevelCache.getFileCacheMaxSize()) {
 			throw new CahceOverfullException();
 		}
@@ -27,26 +27,23 @@ public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> impleme
 	}
 
 	@Override
-	public ValueType getObject(KeyType key, TwoLevelCache twoLevelCache) {
+	public ValueType getObject(KeyType key, TwoLevelCache<KeyType, ValueType> twoLevelCache) {
 		
 		MemoryCahce<KeyType, ValueType> memoryCache = twoLevelCache.getMemoryCache();
 		
 		if(memoryCache.containsKey(key)) {
 			if(isMemoryObjectOutdated(key)) {
-				moveObjectToMemoryCache(key, twoLevelCache);
+				putObjectToMemoryCache(key, twoLevelCache);
 				twoLevelCache.incrementMemoryCacheMisses();
 			} else {
 				twoLevelCache.incrementMemoryCacheHits();
 			}
-			
 		} else {
 			if(memoryCache.getDataVolume() < twoLevelCache.getMemoryCacheMaxSize()) {
-				moveObjectToMemoryCache(key, twoLevelCache);
+				putObjectToMemoryCache(key, twoLevelCache);
 				twoLevelCache.incrementMemoryCacheMisses();
 			} else {
-				KeyType disKey = (KeyType) findDisplaycedObject(twoLevelCache.getMemoryCache());
-				memoryCache.delete(disKey);
-				moveObjectToMemoryCache(key, twoLevelCache);
+				displaceObject(key, twoLevelCache);
 			}
 		}
 		
@@ -55,7 +52,15 @@ public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> impleme
 		return memoryCache.get(key);
 	}
 	
-	private KeyType findDisplaycedObject(MemoryCahce<KeyType, ValueType> memoryCache) {
+	@Override
+	public void displaceObject(KeyType displacingObjKey, TwoLevelCache<KeyType, ValueType> twoLevelCache) {
+		KeyType displacedObjKey = findDisplacedObject(twoLevelCache.getMemoryCache());
+		twoLevelCache.getMemoryCache().delete(displacedObjKey);
+		putObjectToMemoryCache(displacingObjKey, twoLevelCache);
+	}
+	
+	@Override
+	public KeyType findDisplacedObject(MemoryCahce<KeyType, ValueType> memoryCache) {
 		KeyType minTimeKey = memoryCache.getData().entrySet().iterator().next().getKey();
 		Long minTimeValue = lastCallTime.get(minTimeKey);
 		
@@ -69,7 +74,8 @@ public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> impleme
 		return minTimeKey;
 	}
 	
-	private boolean isMemoryObjectOutdated(KeyType key) {
+	private boolean isMemoryObjectOutdated(KeyType key) { // Возвращает true если Объект в файловом кэше обновился
+		
 		if(!memoryUpdateTime.containsKey(key) || !fileUpdateTime.containsKey(key) || memoryUpdateTime.get(key) == null || fileUpdateTime.get(key) == null) {
 			return false;
 		}
@@ -81,7 +87,8 @@ public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> impleme
 		return false;
 	}
 	
-	private void moveObjectToMemoryCache(KeyType key, TwoLevelCache twoLevelCache) {
+	@Override
+	public void putObjectToMemoryCache(KeyType key, TwoLevelCache<KeyType, ValueType> twoLevelCache) {
 		if(twoLevelCache.getFileCache().containsKey(key)) {
 			twoLevelCache.getMemoryCache().put(key, twoLevelCache.getFileCache().get(key));
 			long time = new Date().getTime();
@@ -93,13 +100,13 @@ public class UpdateTimeStrategy<KeyType, ValueType extends Serializable> impleme
 	}
 	
 	@Override
-	public void updateObject(KeyType key, ValueType value, TwoLevelCache twoLevelCache) {
+	public void updateObject(KeyType key, ValueType value, TwoLevelCache<KeyType, ValueType> twoLevelCache) {
 		twoLevelCache.getFileCache().put(key, value);
 		fileUpdateTime.put(key, new Date().getTime());
 	}
 
 	@Override
-	public void removeObject(KeyType key, TwoLevelCache twoLevelCache) {
+	public void removeObject(KeyType key, TwoLevelCache<KeyType, ValueType> twoLevelCache) {
 		twoLevelCache.getMemoryCache().delete(key);
 		twoLevelCache.getFileCache().delete(key);
 		if(lastCallTime.containsKey(key)) {

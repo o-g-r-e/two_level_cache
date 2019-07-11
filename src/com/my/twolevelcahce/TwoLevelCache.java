@@ -12,9 +12,9 @@ public class TwoLevelCache<KeyType,ValueType extends Serializable> {
 	private int memoryCacheMisses;
 	private int memoryCacheHits;
 	
-	private Strategy strategy;
+	private Strategy<KeyType, ValueType> strategy;
 	
-	public TwoLevelCache(String fileCacheFolder, int memoryCacheMaxSize, int fileCacheMaxSize, Strategy strategy) {
+	public TwoLevelCache(String fileCacheFolder, int memoryCacheMaxSize, int fileCacheMaxSize, Strategy<KeyType, ValueType> strategy) {
 		
 		this.fileCache = new FileCahce<KeyType, ValueType>(fileCacheFolder);
 		this.memoryCache = new MemoryCahce<KeyType, ValueType>();
@@ -31,7 +31,7 @@ public class TwoLevelCache<KeyType,ValueType extends Serializable> {
 		strategy.putObject(key, value, this);
 	}
 	
-	public ValueType get(KeyType key) {
+	synchronized public ValueType get(KeyType key) {
 		return (ValueType) strategy.getObject(key, this);
 	}
 	
@@ -39,7 +39,7 @@ public class TwoLevelCache<KeyType,ValueType extends Serializable> {
 		strategy.updateObject(key, value, this);
 	}
 	
-	public void delete(KeyType key) {
+	synchronized public void delete(KeyType key) {
 		strategy.removeObject(key, this);
 	}
 	
